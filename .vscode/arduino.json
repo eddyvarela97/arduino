@@ -1,0 +1,5 @@
+{
+    "board": "arduino:avr:unowifi",
+    "sketch": "smart_plant_clock_alarm_mvp/smart_plant_clock_alarm_mvp.ino",
+    "port": "/dev/tty.usbserial-14110"
+}

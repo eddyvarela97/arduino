@@ -1,25 +1,30 @@
 
+// Reference for connecting SPI see https://www.arduino.cc/en/Reference/SPI
 // CONNECTIONS:
-// DS1302 CLK/SCLK --> 5
-// DS1302 DAT/IO --> 4
-// DS1302 RST/CE --> 2
-// DS1302 VCC --> 3.3v - 5v
-// DS1302 GND --> GND
+// DS3234 MISO --> MISO
+// DS3234 MOSI --> MOSI
+// DS3234 CLK  --> CLK (SCK)
+// DS3234 CS (SS) --> 5 (pin used to select the DS3234 on the SPI)
+// DS3234 VCC --> 3.3v or 5v
+// DS3234 GND --> GND
 
-#include <ThreeWire.h>  
-#include <RtcDS1302.h>
+const uint8_t DS3234_CS_PIN = 5;
 
-ThreeWire myWire(4,5,2); // IO, SCLK, CE
-RtcDS1302<ThreeWire> Rtc(myWire);
+#include <SPI.h>
+#include <RtcDS3234.h>
+
+RtcDS3234<SPIClass> Rtc(SPI, DS3234_CS_PIN);
 
 void setup () 
 {
-    Serial.begin(57600);
+    Serial.begin(115200);
+    while (!Serial);
 
     Serial.print("compiled: ");
     Serial.print(__DATE__);
     Serial.println(__TIME__);
 
+    SPI.begin();
     Rtc.Begin();
 
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
@@ -33,13 +38,12 @@ void setup ()
         //    2) the battery on the device is low or even missing
 
         Serial.println("RTC lost confidence in the DateTime!");
-        Rtc.SetDateTime(compiled);
-    }
 
-    if (Rtc.GetIsWriteProtected())
-    {
-        Serial.println("RTC was write protected, enabling writing now");
-        Rtc.SetIsWriteProtected(false);
+        // following line sets the RTC to the date & time this sketch was compiled
+        // it will also reset the valid flag internally unless the Rtc device is
+        // having an issue
+
+        Rtc.SetDateTime(compiled);
     }
 
     if (!Rtc.GetIsRunning())
@@ -62,21 +66,31 @@ void setup ()
     {
         Serial.println("RTC is the same as compile time! (not expected but all is fine)");
     }
+
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    Rtc.Enable32kHzPin(false);
+    Rtc.SetSquareWavePin(DS3234SquareWavePin_ModeNone); 
 }
 
 void loop () 
 {
-    RtcDateTime now = Rtc.GetDateTime();
-
-    printDateTime(now);
-    Serial.println();
-
-    if (!now.IsValid())
+    if (!Rtc.IsDateTimeValid()) 
     {
         // Common Causes:
         //    1) the battery on the device is low or even missing and the power line was disconnected
         Serial.println("RTC lost confidence in the DateTime!");
     }
+
+    RtcDateTime now = Rtc.GetDateTime();
+    printDateTime(now);
+    Serial.println();
+
+	RtcTemperature temp = Rtc.GetTemperature();
+	temp.Print(Serial);
+	// you may also get the temperature as a float and print it
+    // Serial.print(temp.AsFloatDegC());
+    Serial.println("C");
 
     delay(10000); // ten seconds
 }
@@ -98,3 +112,4 @@ void printDateTime(const RtcDateTime& dt)
             dt.Second() );
     Serial.print(datestring);
 }
+
